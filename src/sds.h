@@ -55,7 +55,7 @@ struct sdshdr {
     // buf 中剩余可用空间的长度
     int free;
 
-    // 数据空间
+    // 数据空间 : 这样写数组不占据struct内存空间，节省空间
     char buf[];
 };
 
@@ -66,6 +66,7 @@ struct sdshdr {
  * T = O(1)
  */
 static inline size_t sdslen(const sds s) {
+    //s 是一个指针变量
     struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
     return sh->len;
 }
