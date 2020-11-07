@@ -545,8 +545,9 @@ static int anetGenericAccept(char *err, int s, struct sockaddr *sa, socklen_t *l
     return fd;
 }
 
-/*
- * TCP 连接 accept 函数
+/**
+ *
+ * 调用accept 返回 通信fd
  */
 int anetTcpAccept(char *err, int s, char *ip, size_t ip_len, int *port) {
     int fd;

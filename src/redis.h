@@ -401,7 +401,7 @@ typedef long long mstime_t; /* millisecond time type. */
 typedef struct redisObject {
 
     // 类型
-    unsigned type:4;
+    unsigned type:4;  //声明占4位
 
     // 编码
     unsigned encoding:4;
@@ -409,7 +409,7 @@ typedef struct redisObject {
     // 对象最后一次被访问的时间
     unsigned lru:REDIS_LRU_BITS; /* lru time (relative to server.lruclock) */
 
-    // 引用计数
+    // 引用计e
     int refcount;
 
     // 指向实际值的指针
@@ -835,7 +835,7 @@ struct redisServer {
     // serverCron() 每秒调用的次数
     int hz;                     /* serverCron() calls frequency in hertz */
 
-    // 数据库
+    // 数据库 一个数组
     redisDb *db;
 
     // 命令表（受到 rename 配置选项的作用）
@@ -890,7 +890,7 @@ struct redisServer {
     char *unixsocket;           /* UNIX socket path */
     mode_t unixsocketperm;      /* UNIX socket permission */
 
-    // 描述符
+    // 描述符 绑定的网卡数组
     int ipfd[REDIS_BINDADDR_MAX]; /* TCP socket file descriptors */
     // 描述符数量
     int ipfd_count;             /* Used slots in ipfd[] */

@@ -1817,7 +1817,7 @@ void initServerConfig() {
     // 初始化和复制相关的状态
     server.masterauth = NULL;
     server.masterhost = NULL;
-    server.masterport = 6379;
+    server.masterport =  6379;
     server.master = NULL;
     server.cached_master = NULL;
     server.repl_master_initial_offset = -1;
@@ -2077,13 +2077,17 @@ void initServer() {
     // 创建共享对象
     createSharedObjects();
     adjustOpenFilesLimit();
+
+    //#!!  初始化 el
     server.el = aeCreateEventLoop(server.maxclients+REDIS_EVENTLOOP_FDSET_INCR);
+
+    //分配默认的db实例所需要的内存
     server.db = zmalloc(sizeof(redisDb)*server.dbnum);
 
     /* Open the TCP listening socket for the user commands. */
-    // 打开 TCP 监听端口，用于等待客户端的命令请求
-    if (server.port != 0 &&
-        listenToPort(server.port,server.ipfd,&server.ipfd_count) == REDIS_ERR)
+    // 打开 TCP 监听端口，用于等待客户端的命令请求 socket->bind->listen
+     // 初始化 server.ipfd
+    if (server.port != 0 && listenToPort(server.port,server.ipfd,&server.ipfd_count) == REDIS_ERR)
         exit(1);
 
     /* Open the listening Unix domain socket. */
@@ -2157,10 +2161,11 @@ void initServer() {
      * domain sockets. */
     // 为 TCP 连接关联连接应答（accept）处理器
     // 用于接受并应答客户端的 connect() 调用
+    //为绑定的ip设置 accept handler
     for (j = 0; j < server.ipfd_count; j++) {
-        if (aeCreateFileEvent(server.el, server.ipfd[j], AE_READABLE,
-            acceptTcpHandler,NULL) == AE_ERR)
-            {
+
+        // #!! 主要初始化 为监听fd 创建  aeFileEvent 并绑定 acceptTcpHandler
+        if (aeCreateFileEvent(server.el, server.ipfd[j], AE_READABLE, acceptTcpHandler,NULL) == AE_ERR) {
                 redisPanic(
                     "Unrecoverable error creating server.ipfd file event.");
             }
@@ -2413,7 +2418,9 @@ void forceCommandPropagation(redisClient *c, int flags) {
 }
 
 /* Call() is the core of Redis execution of a command */
-// 调用命令的实现函数，执行命令
+/**
+ * 调用命令的实现函数，执行命令
+ */
 void call(redisClient *c, int flags) {
     // start 记录命令开始执行的时间
     long long dirty, start, duration;
@@ -2515,7 +2522,8 @@ void call(redisClient *c, int flags) {
     server.stat_numcommands++;
 }
 
-/* If this function gets called we already read a whole
+/**
+ * If this function gets called we already read a whole
  * command, arguments are in the client argv/argc fields.
  * processCommand() execute the command or prepare the
  * server for a bulk read from the client.
@@ -3930,6 +3938,12 @@ void redisSetProcTitle(char *title) {
 #endif
 }
 
+/**
+ * 程序入口
+ * @param argc
+ * @param argv
+ * @return
+ */
 int main(int argc, char **argv) {
     struct timeval tv;
 
@@ -4026,7 +4040,7 @@ int main(int argc, char **argv) {
     // 将服务器设置为守护进程
     if (server.daemonize) daemonize();
 
-    // 创建并初始化服务器数据结构
+    // #!! 创建并初始化服务器数据结构
     initServer();
 
     // 如果服务器是守护进程，那么创建 PID 文件

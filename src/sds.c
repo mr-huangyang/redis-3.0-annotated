@@ -71,6 +71,7 @@ sds sdsnewlen(const void *init, size_t initlen) {
     // T = O(N)
     if (init) {
         // zmalloc 不初始化所分配的内存
+        // 为什么sh的内存必须包括 initlen + 1 ？ 1：分配连续空间，2：可变数组
         sh = zmalloc(sizeof(struct sdshdr)+initlen+1);
     } else {
         // zcalloc 将分配的内存全部初始化为 0
@@ -236,6 +237,8 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
 
     // 获取 s 目前已占用空间的长度
     len = sdslen(s);
+
+    // #-xx 根据sds 定位关联的sdshdr
     sh = (void*) (s-(sizeof(struct sdshdr)));
 
     // s 最少需要的长度

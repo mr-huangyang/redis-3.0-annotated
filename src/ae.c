@@ -60,8 +60,9 @@
     #endif
 #endif
 
-/*
- * 初始化事件处理器状态
+/**
+ * 初始化事件处理器状态 ,setsize = maxclients + 某个数
+ * 主要是分配events ,fired 内存
  */
 aeEventLoop *aeCreateEventLoop(int setsize) {
     aeEventLoop *eventLoop;
@@ -86,6 +87,8 @@ aeEventLoop *aeCreateEventLoop(int setsize) {
     eventLoop->stop = 0;
     eventLoop->maxfd = -1;
     eventLoop->beforesleep = NULL;
+
+    //#??
     if (aeApiCreate(eventLoop) == -1) goto err;
 
     /* Events with mask == AE_NONE are not set. So let's initialize the
@@ -163,9 +166,10 @@ void aeStop(aeEventLoop *eventLoop) {
     eventLoop->stop = 1;
 }
 
-/*
+/**
  * 根据 mask 参数的值，监听 fd 文件的状态，
  * 当 fd 可用时，执行 proc 函数
+ * 为fd的event做一些初始化的工作：1-绑定处理函数
  */
 int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
         aeFileProc *proc, void *clientData)
@@ -177,7 +181,8 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
 
     if (fd >= eventLoop->setsize) return AE_ERR;
 
-    // 取出文件事件结构
+    // 取出文件事件结构： 为什么通过fd来取事件结构体？
+    //0,1,2 表示标准输入输出，那是不是会浪费3个空间
     aeFileEvent *fe = &eventLoop->events[fd];
 
     // 监听指定 fd 的指定事件
@@ -556,7 +561,8 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
             }
         }
 
-        // 处理文件事件，阻塞时间由 tvp 决定
+        //处理文件事件，阻塞时间由 tvp 决定
+        //#!! aeApiPoll 屏蔽了系统差异，获取就绪事件
         numevents = aeApiPoll(eventLoop, tvp);
         for (j = 0; j < numevents; j++) {
             // 从已就绪数组中获取事件
@@ -618,8 +624,8 @@ int aeWait(int fd, int mask, long long milliseconds) {
     }
 }
 
-/*
- * 事件处理器的主循环
+/**
+ * #!! 循环处理接收到的client请求 事件处理器的主循环
  */
 void aeMain(aeEventLoop *eventLoop) {
 
@@ -631,7 +637,7 @@ void aeMain(aeEventLoop *eventLoop) {
         if (eventLoop->beforesleep != NULL)
             eventLoop->beforesleep(eventLoop);
 
-        // 开始处理事件
+        //#!! 网络连接 开始处理事件
         aeProcessEvents(eventLoop, AE_ALL_EVENTS);
     }
 }

@@ -69,8 +69,8 @@ int listMatchObjects(void *a, void *b) {
     return equalStringObjects(a,b);
 }
 
-/*
- * 创建一个新客户端
+/**
+ * 创建一个新客户端,并绑定相应的处理函数
  */
 redisClient *createClient(int fd) {
 
@@ -94,9 +94,8 @@ redisClient *createClient(int fd) {
         if (server.tcpkeepalive)
             anetKeepAlive(NULL,fd,server.tcpkeepalive);
         // 绑定读事件到事件 loop （开始接收命令请求）
-        if (aeCreateFileEvent(server.el,fd,AE_READABLE,
-            readQueryFromClient, c) == AE_ERR)
-        {
+        // #!! 重要
+        if (aeCreateFileEvent(server.el,fd,AE_READABLE, readQueryFromClient, c) == AE_ERR) {
             close(fd);
             zfree(c);
             return NULL;
@@ -745,10 +744,12 @@ void copyClientOutputBuffer(redisClient *dst, redisClient *src) {
     dst->reply_bytes = src->reply_bytes;
 }
 
-/*
- * TCP 连接 accept 处理器
- */
 #define MAX_ACCEPTS_PER_CALL 1000
+
+/**
+ * TCP 连接 accept 处理器<br>
+ *
+ */
 static void acceptCommonHandler(int fd, int flags) {
 
     // 创建客户端
@@ -788,8 +789,10 @@ static void acceptCommonHandler(int fd, int flags) {
     c->flags |= flags;
 }
 
-/* 
+/**
  * 创建一个 TCP 连接处理器
+ * 1:调用accept,得到通信fd并创建redisClient
+ * 2: 为通信fd的fe配置处理函数
  */
 void acceptTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     int cport, cfd, max = MAX_ACCEPTS_PER_CALL;
@@ -1308,7 +1311,7 @@ int processMultibulkBuffer(redisClient *c) {
         redisAssertWithInfo(c,NULL,c->argc == 0);
 
         /* Multi bulk length cannot be read without a \r\n */
-        // 检查缓冲区的内容第一个 "\r\n"
+        // 检查缓冲区的内容第一个 "\r\n" , strchr 查找字符第一次出现的位置，返回指向第一次出现字符character位置的指针
         newline = strchr(c->querybuf,'\r');
         if (newline == NULL) {
             if (sdslen(c->querybuf) > REDIS_INLINE_MAX_SIZE) {
@@ -1525,7 +1528,9 @@ void processInputBuffer(redisClient *c) {
         if (c->reqtype == REDIS_REQ_INLINE) {
             if (processInlineBuffer(c) != REDIS_OK) break;
         } else if (c->reqtype == REDIS_REQ_MULTIBULK) {
+
             if (processMultibulkBuffer(c) != REDIS_OK) break;
+
         } else {
             redisPanic("Unknown request type");
         }
@@ -1536,14 +1541,16 @@ void processInputBuffer(redisClient *c) {
         } else {
             /* Only reset the client when the command was executed. */
             // 执行命令，并重置客户端
+
             if (processCommand(c) == REDIS_OK)
                 resetClient(c);
         }
     }
 }
 
-/*
- * 读取客户端的查询缓冲区内容
+
+/**
+ * #!! 读取客户端的查询缓冲区内容: 命令解析从这里开始
  */
 void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisClient *c = (redisClient*) privdata;
@@ -1552,7 +1559,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
 
-    // 设置服务器的当前客户端
+    // 设置服务器的当前客户端 ？？？
     server.current_client = c;
     
     // 读入长度（默认为 16 MB）
@@ -1580,8 +1587,11 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
     // 为查询缓冲区分配空间
     c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
-    // 读入内容到查询缓存
+
+    //#!! 读入内容到查询缓存
+    //为什么用read ,i et recv ??
     nread = read(fd, c->querybuf+qblen, readlen);
+
 
     // 读入出错
     if (nread == -1) {
@@ -1603,6 +1613,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         // 根据内容，更新查询缓冲区（SDS） free 和 len 属性
         // 并将 '\0' 正确地放到内容的最后
         sdsIncrLen(c->querybuf,nread);
+
         // 记录服务器和客户端最后一次互动的时间
         c->lastinteraction = server.unixtime;
         // 如果客户端是 master 的话，更新它的复制偏移量

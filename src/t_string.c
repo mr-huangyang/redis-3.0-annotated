@@ -88,6 +88,7 @@ static int checkStringLength(redisClient *c, long long size) {
 
 void setGenericCommand(redisClient *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply) {
 
+    // long 32位 long long 64位
     long long milliseconds = 0; /* initialized to avoid any harmness warning */
 
     // 取出过期时间
